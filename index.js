@@ -56,6 +56,7 @@ const conectricUsbGateway = {
         sendRawData: Joi.boolean().optional(),
         sendBootMessages: Joi.boolean().optional(),
         sendKeepAliveMessages: Joi.boolean().optional(),
+        sendStatusMessages: Joi.boolean().optional(),
         sendDecodedPayload: Joi.boolean().optional(),
         useFahrenheitTemps: Joi.boolean().optional(),
         switchOpenValue: Joi.boolean().optional(),
@@ -629,11 +630,39 @@ const conectricUsbGateway = {
                     break;
                 case 'motion':
                     message.payload.battery = battery;
-                    message.payload.motion = true;
+                    
+                    if (messageData === '21' || messageData === '22') {
+                        // This is a status report not an actual event.
+                        if (! conectricUsbGateway.params.sendStatusMessages) {
+                            // Not sending status message to callback.
+                            return;
+                        }
+
+                        message.type = 'motionStatus';
+                    } else {
+                        // Only indicate motion for real motion events.
+                        message.payload.motion = true;
+                    }
+
                     break;
                 case 'switch':
                     message.payload.battery = battery;
-                    message.payload.switch = (conectricUsbGateway.params.switchOpenValue ? (messageData === '81') : (messageData === '82'));
+
+                    if (messageData === '21' || messageData === '22') {
+                        // This is a status report not an actual event.
+                        if (! conectricUsbGateway.params.sendStatusMessages) {
+                            // Not sending status message to callback.
+                            return;
+                        }
+
+                        message.type = 'switchStatus';
+
+                        // This is reporting the current status, no change actually occurred.
+                        message.payload.switch = (conectricUsbGateway.params.switchOpenValue ? (messageDate === '21') : (messageData === '22'));
+                    } else {
+                        // This is an actual status change event.
+                        message.payload.switch = (conectricUsbGateway.params.switchOpenValue ? (messageData === '81') : (messageData === '82'));
+                    }
                     break;
                 case 'keepAlive':
                     if (conectricUsbGateway.params.sendKeepAliveMessages) {

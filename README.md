@@ -1,8 +1,8 @@
-![Conectric Logo](https://raw.githubusercontent.com/Conectric/conectric-usb-gateway/master/logo.png)
+![Conectric Logo](https://raw.githubusercontent.com/Conectric/conectric-usb-gateway-beta/master/logo.png)
 
-# Conectric USB Gateway Module for Node.js
+# Conectric USB Gateway Module for Node.js (beta)
 
-![Conectric USB Router](https://raw.githubusercontent.com/Conectric/conectric-usb-gateway/master/usbstick.jpg)
+![Conectric USB Router](https://raw.githubusercontent.com/Conectric/conectric-usb-gateway-beta/master/usbstick.jpg)
 
 ## Introduction
 
@@ -10,7 +10,7 @@ This module is Conectric's Node.js SDK that allows you to communicate with our w
 
 Our introductory video provides a quick overview of the product.
 
-[![Introductory Video](https://raw.githubusercontent.com/Conectric/conectric-usb-gateway/master/video.jpg)](https://www.youtube.com/watch?v=aPfZNUkFKBM)
+[![Introductory Video](https://raw.githubusercontent.com/Conectric/conectric-usb-gateway-beta/master/video.jpg)](https://www.youtube.com/watch?v=aPfZNUkFKBM)
 
 We also published an [overview on Medium](https://medium.com/conectric-networks/announcing-conectrics-usb-iot-gateway-sensor-product-86087af7ae57).
 
@@ -75,8 +75,8 @@ npm init
 Accept all the defaults, except "entry point", use `server.js` for that.  Then:
 
 ```shell
-npm install --save conectric-usb-gateway
-cp node_modules/conectric-usb-gateway/examples/logmessages/server.js .
+npm install --save conectric-usb-gateway-beta
+cp node_modules/conectric-usb-gateway-beta/examples/logmessages/server.js .
 npm start
 ```
 
@@ -110,7 +110,7 @@ USB router Conectric version: 1.0.2
 `server.js` contains:
 
 ```javascript
-const gateway = require('conectric-usb-gateway');
+const gateway = require('conectric-usb-gateway-beta');
 
 gateway.runGateway({
   onSensorMessage: (sensorMessage) => {
@@ -137,6 +137,7 @@ Each message has a set of common keys.  Others only appear when certain gateway 
     * `boot`
     * `keepAlive`
     * `motion`
+    * `motionStatus`
     * `rs485Config`
     * `rs485ChunkEnvelopeResponse`,
     * `rs485ChunkRequest`,
@@ -144,6 +145,7 @@ Each message has a set of common keys.  Others only appear when certain gateway 
     * `rs485Request`
     * `rs485Response`
     * `switch`
+    * `switchStatus`
     * `tempHumidity`
     * `text`
 
@@ -173,7 +175,7 @@ The `payload` for the `boot` message consists of the following keys:
     * `watchdogReset`: The sensor's firmware detected a need to reboot the sensor.
     * `unknown`: Catch all value, which should never appear.
 
-If your application does not need to see these messages, they can be suppressed using the `sendBootMessages` configuration option.  See the [Configuration Options](#configuration-options) for details.
+If your application does not need to see these messages, they can be suppressed using the `sendBootMessages` configuration option.  See the [Configuration Options](#configuration-options) section for details.
 
 ### keepAlive
 
@@ -193,7 +195,7 @@ The message JSON looks like this:
 }
 ```
 
-Delivery of these messages to the callback function is disabled by default.  If your application needs to receive them, they can be enabled using the `sendKeepAliveMessages` configuration option. See the [Configuration Options](#configuration-options) for details. 
+Delivery of these messages to the callback function is disabled by default.  If your application needs to receive them, they can be enabled using the `sendKeepAliveMessages` configuration option. See the [Configuration Options](#configuration-options) section for details. 
 
 ### motion
 
@@ -216,6 +218,24 @@ The `payload` for the `motion` message consists of the following keys:
 
 * `battery`: The sensor's battery level in volts.
 * `motion`: Will always be `true` as the sensor only fires when motion is detected.
+
+### motionStatus
+
+This message is sent periodically by a motion detector when there have been no actual motion events, to let you know that the sensor is OK.  The message JSON looks like:
+
+```json
+{ 
+  "type": "motionStatus",
+  "payload": { 
+    "battery": 3.2 
+  },
+  "timestamp": 1551034925,
+  "sensorId": "12c0",
+  "sequenceNumber": 23
+}
+```
+
+These messages are off by default, and can be enabled using the `sendStatusMessages` configuration option.  See the [Configuration Options](#configuration-options) section for details.   
 
 ### rs485ChunkEnvelopeResponse
 
@@ -326,6 +346,25 @@ gateway.runGateway({
 })
 ```
 
+### switchStatus
+
+This message is sent when a switch sensor has not generated a real switch event for a period of time (e.g. because the door hasn't opened or closed in that time).  The message tells you the current state of the switch (see the `switch` message type above for details).  Receiving this message does not indicate a state transition event - it is a periodic status reminder.  Whenever the door opens or closes, a `switch` message will be sent instead.
+
+```json
+{ 
+  "type": "switchStatus",
+  "payload": { 
+    "battery": 3.1, 
+    "switch": false 
+  },
+  "timestamp": 1551033663,
+  "sensorId": "1078",
+  "sequenceNumber": 19
+}
+```
+
+These messages are off by default, and can be enabled using the `sendStatusMessages` configuration option.  See the [Configuration Options](#configuration-options) section for details. 
+
 ### tempHumidity
 
 This message is sent when a temperature and humidity sensor broadcasts the temperature and humidity values that it has observed.  The message JSON looks like:
@@ -391,7 +430,7 @@ The object passed to the `runGateway` method must contain a key `onSensorData` w
 Here's an example implementation that can process several types of incoming message and display relevant data:
 
 ```javascript
-const gateway = require('conectric-usb-gateway');
+const gateway = require('conectric-usb-gateway-beta');
 
 gateway.runGateway({
   onSensorMessage: (sensorMessage) => {
@@ -423,7 +462,7 @@ gateway.runGateway({
 This is an optional callback that should be provided if you want to know when the USB router has been inserted and the gateway has established communications with it and is ready to send messages.  Use this if you wish to use the text message sending or RS-485 functionality.
 
 ```javascript
-const gateway = require('conectric-usb-gateway');
+const gateway = require('conectric-usb-gateway-beta');
 
 gateway.runGateway({
     onSensorMessage: (sensorMessage) => {
@@ -450,7 +489,7 @@ The object that is passed as the only parameter to the `runGateway` method can a
 Example with some configuration options set, those which are omitted will use their default values:
 
 ```javascript
-const gateway = require('conectric-usb-gateway');
+const gateway = require('conectric-usb-gateway-beta');
 
 gateway.runGateway({
   onSensorMessage: (sensorMessage) => {
@@ -527,6 +566,19 @@ If `true`, messages supplied to the `onSensorData` callback will contain a `rawD
 * Optional: yes
 * Default: `false`
 
+### sendStatusMessages
+
+If `true`, periodic status messages generated by sensors will be passed to the `onSensorData` callback.  In this version, the following sensors generate such messages:
+
+* Switch
+* Motion
+
+Configuration:
+
+* Possible values: `true | false`
+* Optional: yes
+* Default: `false`
+
 ### switchOpenValue
 
 Determines whether the library reports the switch sensor having an open circuit as `true` or `false`.  Set according to your application's needs.
@@ -548,7 +600,7 @@ If `true`, messages of type `tempHumidity` will contain temperature in Fahrenhei
 Should you need to access the mesh network MAC address for the USB router that the gateway module is using, you can do so in your callback function as follows:
 
 ```javascript
-const gateway = require('conectric-usb-gateway');
+const gateway = require('conectric-usb-gateway-beta');
 
 gateway.runGateway({
   onSensorMessage: (sensorMessage) => {
@@ -565,7 +617,7 @@ The MAC address is returned as a string.  This could for example be useful to us
 Should you need to know the gateway's Contiki OS version or Conectric firmware version, you can do so in your callback function as follows:
 
 ```javascript
-const gateway = require('conectric-usb-gateway');
+const gateway = require('conectric-usb-gateway-beta');
 
 gateway.runGateway({
   onSensorMessage: (sensorMessage) => {
@@ -583,7 +635,7 @@ To send a text message to another USB router, you will need to know the last 4 c
 Once you have that, simply call `sendTextMessage`:
 
 ```javascript
-const gateway = require('conectric-usb-gateway');
+const gateway = require('conectric-usb-gateway-beta');
 
 gateway.runGateway({
     onSensorMessage: (sensorMessage) => {
@@ -622,7 +674,7 @@ The following parameters are all required when using `sendRS485ConfigMessage`:
 * `destination`: The last 4 characters of the MAC address of the device that the message is destined for e.g. `da40`. 
 
 ```javascript
-const gateway = require('conectric-usb-gateway');
+const gateway = require('conectric-usb-gateway-beta');
 
 gateway.runGateway({
     onSensorMessage: (sensorMessage) => {
@@ -658,7 +710,7 @@ And the following are optional parameters:
 * `hexEncodePayload`: If set to `true`, the value of `message` will be hex encoded before being sent to the wireless RS-485 module.  If set to `false`, the value of `message` will be sent unchanged.  Defaults to `true`.
 
 ```javascript
-const gateway = require('conectric-usb-gateway');
+const gateway = require('conectric-usb-gateway-beta');
   
 gateway.runGateway({
   onSensorMessage: (sensorMessage) => {
@@ -685,7 +737,7 @@ This requires the gateway to be up and running, so should be called only once th
 `rs485Response` messages arrive into the `onSensorMessage` callback function like any other messages from sensors:
 
 ```javascript
-const gateway = require('conectric-usb-gateway');
+const gateway = require('conectric-usb-gateway-beta');
 
 gateway.runGateway({
     onSensorMessage: (sensorMessage) => {
@@ -774,8 +826,8 @@ npm init
 Accept all the defaults, except "entry point", use `server.js` for that.  Then:
 
 ```shell
-npm install --save conectric-usb-gateway
-cp node_modules/conectric-usb-gateway/examples/logmessages/server.js .
+npm install --save conectric-usb-gateway-beta
+cp node_modules/conectric-usb-gateway-beta/examples/logmessages/server.js .
 npm start
 ```
 
@@ -802,9 +854,9 @@ npm init
 Accept all the defaults, except "entry point", use `server.js` for that.  Then:
 
 ```shell
-npm install --save conectric-usb-gateway
+npm install --save conectric-usb-gateway-beta
 npm install --save request
-cp node_modules/conectric-usb-gateway/examples/sendmessages/server.js .
+cp node_modules/conectric-usb-gateway-beta/examples/sendmessages/server.js .
 npm start
 ```
 
@@ -833,8 +885,8 @@ npm init
 Accept all the defaults, except "entry point", use `server.js` for that.  Then:
 
 ```shell
-npm install --save conectric-usb-gateway
-cp node_modules/conectric-usb-gateway/examples/textmessage/server.js .
+npm install --save conectric-usb-gateway-beta
+cp node_modules/conectric-usb-gateway-beta/examples/textmessage/server.js .
 ```
 
 Don't start the gateway yet, we need to set up the second one first... On another computer, follow the instructions to set up Example 1: Log Incoming Messages.  Start the message logging example code, and insert the USB router whose MAC address ends with the `DESTINATION_ROUTER_ADDR` that was set on the first computer.
@@ -916,9 +968,9 @@ npm init
 Accept all the defaults, except "entry point", use `server.js` for that.  Then:
 
 ```shell
-npm install --save conectric-usb-gateway
+npm install --save conectric-usb-gateway-beta
 npm install --save twilio
-cp node_modules/conectric-usb-gateway/examples/twiliosms/server.js .
+cp node_modules/conectric-usb-gateway-beta/examples/twiliosms/server.js .
 npm start
 ```
 
@@ -954,9 +1006,9 @@ npm init
 Accept all the defaults, except "entry point", use `server.js` for that.  Then:
 
 ```shell
-npm install --save conectric-usb-gateway
+npm install --save conectric-usb-gateway-beta
 npm install --save slack-node
-cp node_modules/conectric-usb-gateway/examples/slackmotion/server.js .
+cp node_modules/conectric-usb-gateway-beta/examples/slackmotion/server.js .
 npm start
 ```
 
@@ -998,9 +1050,9 @@ npm init
 Accept all the defaults, except "entry point", use `server.js` for that.  Then:
 
 ```shell
-npm install --save conectric-usb-gateway
+npm install --save conectric-usb-gateway-beta
 npm install --save elasticsearch
-cp node_modules/conectric-usb-gateway/examples/elastic/server.js .
+cp node_modules/conectric-usb-gateway-beta/examples/elastic/server.js .
 npm start
 ```
 
@@ -1034,19 +1086,19 @@ npm init
 Accept all the defaults, except "entry point", use `server.js` for that.  Then:
 
 ```shell
-npm install --save conectric-usb-gateway
+npm install --save conectric-usb-gateway-beta
 ```
 
 If you have a v3 meter:
 
 ```shell
-cp node_modules/conectric-usb-gateway/examples/ekm/omnimeter-v3/server.js .
+cp node_modules/conectric-usb-gateway-beta/examples/ekm/omnimeter-v3/server.js .
 ```
 
 If using a v4 meter, do this instead:
 
 ```shell
-node_modules/conectric-usb-gateway/examples/ekm/omnimeter-v4/server.js .
+node_modules/conectric-usb-gateway-beta/examples/ekm/omnimeter-v4/server.js .
 ```
 
 Then edit `server.js`, replacing `dfbc` with the 4 character MAC address of your RS-485 sensor.  Also set the value of the constant `METER_SERIAL_NUMBER_HEX` with the encoded serial number for your meter.
