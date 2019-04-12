@@ -1,6 +1,6 @@
 // Basic example to send a text message to another USB router.
 
-const gateway = require('conectric-usb-gateway');
+const gateway = require('conectric-usb-gateway-beta');
 
 // Last 4 of destination router mac addr eg da40
 const DESTINATION_ROUTER_ADDR = process.env.DESTINATION_ROUTER_ADDR;

@@ -1,4 +1,4 @@
-const gateway = require('conectric-usb-gateway');
+const gateway = require('conectric-usb-gateway-beta');
 const elasticsearch = require('elasticsearch');
 
 const ELASTICSEARCH_URL = process.env.ELASTICSEARCH_URL;

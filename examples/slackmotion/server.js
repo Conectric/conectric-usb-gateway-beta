@@ -1,4 +1,4 @@
-const gateway = require('conectric-usb-gateway');
+const gateway = require('conectric-usb-gateway-beta');
 const Slack = require('slack-node');
 
 const SLACK_WEBHOOK_URL = process.env.SLACK_WEBHOOK_URL;

@@ -1,4 +1,4 @@
-const gateway = require('conectric-usb-gateway');
+const gateway = require('conectric-usb-gateway-beta');
 const request = require('request');
 
 gateway.runGateway({
