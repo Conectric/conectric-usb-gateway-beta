@@ -1,9 +1,49 @@
 {
-  "name": "conectric-usb-gateway-beta",
-  "version": "0.0.3",
+  "_from": "conectric-usb-gateway-beta",
+  "_id": "conectric-usb-gateway-beta@0.0.3",
+  "_inBundle": false,
+  "_integrity": "sha512-aYhpJvB/V81EC8xZ/CxyKdUzmsQ9EYjb4g6T9t/4TvVxYdWn1m4Ec9tDozONZbo36Yo+kiL2UWC9eehgvxGojQ==",
+  "_location": "/conectric-usb-gateway-beta",
+  "_phantomChildren": {},
+  "_requested": {
+    "type": "tag",
+    "registry": true,
+    "raw": "conectric-usb-gateway-beta",
+    "name": "conectric-usb-gateway-beta",
+    "escapedName": "conectric-usb-gateway-beta",
+    "rawSpec": "",
+    "saveSpec": null,
+    "fetchSpec": "latest"
+  },
+  "_requiredBy": [
+    "#USER",
+    "/"
+  ],
+  "_resolved": "https://registry.npmjs.org/conectric-usb-gateway-beta/-/conectric-usb-gateway-beta-0.0.3.tgz",
+  "_shasum": "a19ee194f28e5be1ed7fc79d1e22c62eea6066e0",
+  "_spec": "conectric-usb-gateway-beta",
+  "_where": "/Users/simon/source/projects/adding-lux-water",
+  "author": {
+    "name": "Conectric Networks"
+  },
+  "bugs": {
+    "url": "https://github.com/Conectric/conectric-usb-gateway-beta/issues"
+  },
+  "bundleDependencies": false,
+  "dependencies": {
+    "joi": "^13.1.2",
+    "memory-cache-ttl": "^1.0.52",
+    "moment": "^2.20.1",
+    "round-to": "^2.0.0",
+    "serialport": "^6.0.5",
+    "usb": "^1.3.1"
+  },
+  "deprecated": false,
   "description": "Conectric USB IoT Gateway Library",
-  "main": "index.js",
-  "scripts": {},
+  "engines": {
+    "node": ">=8.9.4"
+  },
+  "homepage": "https://github.com/Conectric/conectric-usb-gateway-beta#readme",
   "keywords": [
     "IoT",
     "Conectric",
@@ -16,21 +56,13 @@
     "motion",
     "energy"
   ],
-  "author": "Conectric Networks",
   "license": "MIT",
-  "dependencies": {
-    "joi": "^13.1.2",
-    "memory-cache-ttl": "^1.0.52",
-    "moment": "^2.20.1",
-    "round-to": "^2.0.0",
-    "serialport": "^6.0.5",
-    "usb": "^1.3.1"
-  },
+  "main": "index.js",
+  "name": "conectric-usb-gateway-beta",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Conectric/conectric-usb-gateway-beta.git"
+    "url": "git+https://github.com/Conectric/conectric-usb-gateway-beta.git"
   },
-  "engines": {
-    "node": ">=8.9.4"
-  }
+  "scripts": {},
+  "version": "0.0.4"
 }

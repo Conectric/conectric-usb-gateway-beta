@@ -36,6 +36,9 @@ The following sensor types are supported at this time:
   * Motion (PIR) sensor.
   * Switch (door switch) sensor.
   * Combined temperature / humidity sensor.
+  * Combined temperature / humidity / light sensor.
+  * Combined temperature / humidity / moisture sensor.
+  * Combined temperature / humidity / analog input sensor.
   * Wireless RS-485 module.
 
 ## Linux Dependencies
@@ -129,13 +132,14 @@ Each message has a set of common keys.  Others only appear when certain gateway 
 * `numHops`: (present if `sendHopData` option is set to `true`).  Value will be a number indicating the number of network hops that the message took.
 * `maxHops`: (present if `sendHopData` option is set to `true`).   Value will be a number indicating the maximum number of allowed network hops (`0` = unlimited).
 * `payload`: (present unless `sendDecodedPayload` option is set to `false`).  Value will be an object whose schema varies depending on the value of `type`, see the next few sections for examples of each type of payload.
-* `timestamp`: (always present) UNIX timestamp for when the gateway received the message from the mesh network.
+* `timestamp`: (always present) UNIX timestamp for when the gateway received the message from the mesh network.  This is in seconds by default, but millisecond resolution can be enabled via configuration options.
 * `rawData`: (present if `sendRawData` option is set to `true`).  Value will be the raw hex data for the message as received from the mesh network.  This is mostly useful for debugging this module, end users should use values from `payload`.
 * `sensorId`: (always present) The last 4 characters of the mesh network MAC address of the sensor that send the message.
 * `sequenceNumber`: (always present) The message sequence number -- do not rely on these to arrive in order, or be unique, as the sequence number will reset over time or if the sensor's battery is removed and replaced.  You should **not** use a combination of `sequenceNumber` and `sensorId` as a unique message key.
 * `type`: (always present) indicates which type of message was received, values are:
     * `boot`
-    * `keepAlive`
+    * `moisture`
+    * `moistureStatus`,
     * `motion`
     * `motionStatus`
     * `rs485Config`
@@ -147,6 +151,8 @@ Each message has a set of common keys.  Others only appear when certain gateway 
     * `switch`
     * `switchStatus`
     * `tempHumidity`
+    * `tempHumidityAdc`
+    * `tempHumidityLight`
     * `text`
 
 ### boot
@@ -177,29 +183,66 @@ The `payload` for the `boot` message consists of the following keys:
 
 If your application does not need to see these messages, they can be suppressed using the `sendBootMessages` configuration option.  See the [Configuration Options](#configuration-options) section for details.
 
-### keepAlive
+### moisture
 
-This message is sent periodically by sensors to indicate that they are still alive.  For example, without a door being opened or closed a switch sensor may not need to send an event message for a very long time, so a `keepAlive` serves as proof that it is still listening, has battery and is attached to the network.
-
-The message JSON looks like this:
+This message is sent when a moisture sensor detects moisture.  It is an event driven message.  If you want the moisture sensor to periodically report its status, regardless of whether a moisture event has occurred, see the `moistureStatus` message.  The message JSON looks like this:
 
 ```json
 { 
-  "type": "keepAlive",
+  "type": "moisture",
   "payload": { 
-    "battery": 3.1 
+    "battery": 2.8, 
+    "moisture": true 
   },
-  "timestamp": 1531977054,
-  "sensorId": "15f0",
-  "sequenceNumber": 26 
+  "sensorId": "3b8e",
+  "sequenceNumber": 141,
+  "timestamp": 1561096119 
 }
 ```
 
-Delivery of these messages to the callback function is disabled by default.  If your application needs to receive them, they can be enabled using the `sendKeepAliveMessages` configuration option. See the [Configuration Options](#configuration-options) section for details. 
+The `payload` for the `moisture` message consists of the following keys:
+
+* `battery`: The sensor's battery level in volts.
+* `moisture`: Will always be `true` as the sensor only fires when moisture is detected.
+
+
+
+### moistureStatus
+
+This message is sent periodically by a moisture sensor, regardless of whether or 
+not it has detected moisture.  The sensor sends data aboout whether or not moisture has been detected, as well as temperature and humidity information.  The message JSON looks like this:
+
+```json
+{ 
+  "type": "moistureStatus",
+  "payload": { 
+    "battery": 2.8,
+    "moisture": false,
+    "temperature": 25.68,
+    "temperatureUnit": "C",
+    "humidity": 55.3 
+  },
+  "sensorId": "3b8e",
+  "sequenceNumber": 142,
+  "timestamp": 1561096180 
+}
+```
+
+The `payload` for the `moistureStatus` message consists of the following keys:
+
+* `battery`: The sensor's battery level in volts.
+* `moisture`: `true` if the sensor detects moisture, otherwise `false`.
+* `temperature`: The temperature reading, to a maximum of two decimal places.
+* `temperatureUnit`: Will be set to `"C"` if the value of `temperature` is in degrees Celcius (default), or `"F"` if the value of `temperature` is in degrees Fahrenheit.
+* `humidity`: The percentage relative humidity reading, to a maximum of two decimal places.
+
+By default, values for `temperature` will be in degrees Celcius.  To receive values in degrees Fahrenheit, set the configuration option `useFahrenheightTemps` to `true` (see [Configuration Options](#configuration-options) section).
+
+These messages are off by default, and can be enabled using the `sendStatusMessages` configuration option.  See the [Configuration Options](#configuration-options) section for details.   
 
 ### motion
 
-This message is sent when a motion detector / PIR sensor detects motion.  The message JSON looks like:
+This message is sent when a motion detector / PIR sensor detects motion.  The message JSON looks like this:
 
 ```json
 { 
@@ -235,7 +278,9 @@ This message is sent periodically by a motion detector when there have been no a
 }
 ```
 
-These messages are off by default, and can be enabled using the `sendStatusMessages` configuration option.  See the [Configuration Options](#configuration-options) section for details.   
+These messages are off by default, and can be enabled using the `sendStatusMessages` configuration option.  See the [Configuration Options](#configuration-options) section for details.
+
+Information about the number of motion events that the sensor has seen can be added to this message by turning on the `sendEventCount` configuration option.  See the [Configuration Options](#configuration-options) section for details.
 
 ### rs485ChunkEnvelopeResponse
 
@@ -363,6 +408,8 @@ This message is sent when a switch sensor has not generated a real switch event 
 }
 ```
 
+Information about the number of switch events that the sensor has seen can be added to this message by turning on the `sendEventCount` configuration option.  See the [Configuration Options](#configuration-options) section for details.
+
 These messages are off by default, and can be enabled using the `sendStatusMessages` configuration option.  See the [Configuration Options](#configuration-options) section for details. 
 
 ### tempHumidity
@@ -392,6 +439,66 @@ The `payload` for the `tempHumidity` message consists of the following keys:
 * `humidity`: The percentage relative humidity reading, to a maximum of two decimal places.
 
 By default, values for `temperature` will be in degrees Celcius.  To receive values in degrees Fahrenheit, set the configuration option `useFahrenheightTemps` to `true` (see [Configuration Options](#configuration-options) section).
+
+### tempHumidityAdc
+
+This message is sent when a combined temperature, humidity and analog input sensor broadcasts the temperature, humidity and analog values that it has observed.  The message JSON looks like:
+
+```json
+{ 
+  "type": "tempHumidityAdc",
+  "payload": { 
+    "battery": 2.8,
+    "temperature": 25.68,
+    "temperatureUnit": "C",
+    "humidity": 51.35,
+    "adcIn": "0090",
+    "adcMax": "07ff" 
+  },
+  "sensorId": "12b9",
+  "sequenceNumber": 179,
+  "timestamp": 1561238170 
+}
+```
+
+The `payload` for the `tempHumidityAdc` message consists of the following keys:
+
+* `battery`: The sensor's battery level in volts.
+* `temperature`: The temperature reading, to a maximum of two decimal places.
+* `temperatureUnit`: Will be set to `"C"` if the value of `temperature` is in degrees Celcius (default), or `"F"` if the value of `temperature` is in degrees Fahrenheit.
+* `humidity`: The percentage relative humidity reading, to a maximum of two decimal places.
+* `adcIn`: Reading from the analog device, will vary depending on device.
+* `adcMax`: Reading from the analog device, will vary depending on device.
+
+### tempHumidityLight
+
+This message is sent when a combined temperature, humidity and light sensor broadcasts the temperature, humidity and light values that it has observed.  The message JSON looks like:
+
+```json
+{ 
+  "type": "tempHumidityLight",
+  "payload": {
+    "battery": 2.7,
+    "temperature": 25.71,
+    "temperatureUnit": "C",
+    "humidity": 50.25,
+    "bucketedLux": 0 
+  },
+  "sensorId": "0f02",
+  "sequenceNumber": 150,
+  "timestamp": 1561238167 
+}
+```
+
+The `payload` for the `tempHumidityLight` message consists of the following keys:
+
+* `battery`: The sensor's battery level in volts.
+* `temperature`: The temperature reading, to a maximum of two decimal places.
+* `temperatureUnit`: Will be set to `"C"` if the value of `temperature` is in degrees Celcius (default), or `"F"` if the value of `temperature` is in degrees Fahrenheit.
+* `humidity`: The percentage relative humidity reading, to a maximum of two decimal places.
+* `bucketedLux`: This value gives an idea of the amount of light detected by the sensor.  A value of 0 means that the lux reading from the sensor was 0-100, 1 means 101-200 etc.  The maximum value is 15, any readings 1500 lux or higher will all return 15.
+
+Additionally, the raw lux value from the light sensor can be enabled in the payload.  When enabled, it appears as `lux` and will be a floating point number.  To turn this on, set the configuration option `sendRawLux` to `true` (see [Configuration Options](#configuration-options) section).
 
 ### text
 
@@ -524,6 +631,14 @@ Some sensors broadcast messages in a burst, where the same message ID is sent mo
 * Optional: yes
 * Default: `true`
 
+### sendAdcWithLux
+
+If set to `true`, will add two keys to `tempHumidityLight` messages: `adcIn` and `adcMax`.  These will both be strings containing hex values from the analog lux sensor.  These values are used by this SDK to calculate the `lux` and `bucketedLux` values for `tempHumidityLight` messages, and it is not normally necessary to work with them directly.
+
+* Possible values: `true | false`
+* Optional: yes
+* Default: `false`
+
 ### sendBootMessages
 
 Sensors broadcast boot messages when a battery is inserted or other power reset event occurs.  This parameter controls whether or not these messages are passed to the `onSensorData` callback.
@@ -540,6 +655,26 @@ If `true`, messages supplied to the `onSensorData` callback will contain a `payl
 * Optional: yes
 * Default: `true`
 
+### sendEventCount
+
+If `true`, messages supplied to the `onSensorData` callback will contain an `eventCount` key containing the number of events that the sensor has detected.  This is useful in combination with the `sendStatusMessages` configuration parameter: the number of events that have occurred in the time between two status messages from the same sensor can then be calculated.
+
+The following message types will contain this if turned on:
+
+* `moisture`
+* `moistureStatus`
+* `motion`
+* `motionStatus`
+* `switch`
+* `switchStatus`
+* `tempHumidity`
+* `tempHumidityAdc`
+* `tempHumidityLight`
+
+* Possible values: `true | false`
+* Optional: yes
+* Default: `false`
+
 ### sendHopData
 
 If `true`, messages supplied to the `onSensorData` callback will contain two extra keys:
@@ -550,17 +685,17 @@ If `true`, messages supplied to the `onSensorData` callback will contain two ext
 * Optional: yes
 * Default: `false`
 
-### sendKeepAliveMessages
-
-If `true`, `keepAlive` messages will be passed to the `onSensorData` callback. 
-
-* Possible values: `true | false`
-* Optional: yes
-* Default: false
-
 ### sendRawData
 
 If `true`, messages supplied to the `onSensorData` callback will contain a `rawData` key containing the unencoded hex message received from the mesh network.  Mostly useful for debugging the gateway module.
+
+* Possible values: `true | false`
+* Optional: yes
+* Default: `false`
+
+### sendRawLux
+
+If `true`, `tempHumidityLight` messages will contain an additional `lux` key containing the actual lux value from the light sensor.  Normally, this data is normalized into the `bucketedLux` value, which will still be sent when `sendRawLux` is `true`.
 
 * Possible values: `true | false`
 * Optional: yes
@@ -571,6 +706,7 @@ If `true`, messages supplied to the `onSensorData` callback will contain a `rawD
 If `true`, periodic status messages generated by sensors will be passed to the `onSensorData` callback.  In this version, the following sensors generate such messages:
 
 * Switch
+* Moisture
 * Motion
 
 Configuration:
@@ -594,6 +730,14 @@ If `true`, messages of type `tempHumidity` will contain temperature in Fahrenhei
 * Possible values: `true | false`
 * Optional: yes
 * Default: `false`
+
+### useMillisecondTimestamps
+
+If `true`, all message timestamps will use millisecond accuracy.  If `false`, all message timestamps will use second accuracy.
+
+* Possible values: `true | false`
+* Optional: yes
+* Detauls: `false`
 
 ## Getting the Gateway's MAC Address
 

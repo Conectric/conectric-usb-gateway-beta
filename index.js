@@ -24,15 +24,18 @@ const conectricUsbGateway = {
     EXTENDED_HEADER: 128,
     
     MESSAGE_TYPES: {
+        // SIMON TODO REMOVE KEEPALIVE FROM DOCS, EXAMPLES
         '30': 'tempHumidity',
         '31': 'switch',
         '32': 'motion',
-        '33': 'keepAlive',
         '36': 'rs485Request',
         '37': 'rs485Response',
         '38': 'rs485ChunkRequest',
         '39': 'rs485ChunkResponse',
         '42': 'rs485ChunkEnvelopeResponse',
+        '44': 'moisture', // SIMON TODO NEW
+        '45': 'tempHumidityLight', // SIMON TODO NEW
+        '46': 'tempHumidityAdc', // SIMON TODO NEW
         '60': 'boot',
         '61': 'text',
         '70': 'rs485Config'
@@ -42,10 +45,12 @@ const conectricUsbGateway = {
         '30',
         '31',
         '32',
-        '33',
         '37',
         '39',
         '42',
+        '44',
+        '45',
+        '46',
         '60',
         '61'
     ],
@@ -53,12 +58,15 @@ const conectricUsbGateway = {
     PARAM_SCHEMA: Joi.object().keys({
         onSensorMessage: Joi.func().required(),
         onGatewayReady: Joi.func().optional(),
+        sendAdcWithLux: Joi.boolean().optional(), // SIMON TODO document
         sendRawData: Joi.boolean().optional(),
+        sendRawLux: Joi.boolean().optional(), // SIMON TODO document
         sendBootMessages: Joi.boolean().optional(),
-        sendKeepAliveMessages: Joi.boolean().optional(),
         sendStatusMessages: Joi.boolean().optional(),
         sendDecodedPayload: Joi.boolean().optional(),
+        sendEventCount: Joi.boolean().optional(),
         useFahrenheitTemps: Joi.boolean().optional(),
+        useMillisecondTimestamps: Joi.boolean().optional(), // SIMON TODO document
         switchOpenValue: Joi.boolean().optional(),
         deDuplicateBursts: Joi.boolean().optional(),
         decodeTextMessages: Joi.boolean().optional(),
@@ -116,7 +124,7 @@ const conectricUsbGateway = {
         allowUnknown: false
     }),
 
-    IGNORABLE_MESSAGE_TYPES: [ '34', '35' ],
+    IGNORABLE_MESSAGE_TYPES: [ '33', '34', '35' ],
 
     KNOWN_COMMANDS: [ 'DP', 'MR', 'SS', 'VER' ],
 
@@ -322,6 +330,27 @@ const conectricUsbGateway = {
         }
 
         return decodedMessage;
+    },
+
+    calculateTemperature: (tempRaw) => {
+        const temperature = roundTo((-46.85 + ((parseInt(tempRaw, 16) / 65536) * 175.72)), 2); // C
+
+        if (conectricUsbGateway.params.useFahrenheitTemps) {
+            return {
+                temperature: roundTo(((temperature * (9 / 5)) + 32), 2), // F
+                temperatureUnit: 'F'
+            }
+        } else {
+            return {
+                temperature,
+                temperatureUnit: 'C'
+            }
+            message.payload.temperatureUnit = 'C';
+        }
+    },
+
+    calculateHumidity: (humidityRaw) => {
+        return roundTo((-6 + (125 * (parseInt(humidityRaw, 16) / 65536))), 2); // percentage
     },
 
     sendTextMessage: (params) => {
@@ -577,10 +606,11 @@ const conectricUsbGateway = {
         const message = {
             type: messageTypeString,
             payload: {},
-            timestamp: moment().unix(),
             sensorId: sourceAddr,
-            sequenceNumber: sequenceNumber
+            sequenceNumber
         };
+
+        message.timestamp= (conectricUsbGateway.params.useMillisecondTimestamps ? moment().valueOf() : moment().unix());
 
         if (conectricUsbGateway.isBroadcastMessageType(messageType)) {
             // Broadcast message detected add extra fields.
@@ -605,33 +635,140 @@ const conectricUsbGateway = {
         } else {
             switch (messageTypeString) {
                 case 'tempHumidity':
-                    if (messageData.length !== 8) {
-                        if (conectricUsbGateway.params.debugMode) {
-                            console.error(`Ignoring tempHumidity message with payload length ${messageData.length}, was expecting length 8.`);
+                    let tempRaw
+                    let humidityRaw
+
+                    if (messageData.length === 8) {
+                        // Older style
+                        tempRaw = messageData.substring(0, 4);
+                        humidityRaw = messageData.substring(4);
+                    } else {
+                        // Newer style
+                        tempRaw = messageData.substring(10, 14);
+                        humidityRaw = messageData.substring(14);
+
+                        if (conectricUsbGateway.params.sendEventCount) {
+                            message.payload.eventCount = parseInt(messageData.substring(2, 10), 16)
+                        }    
+                    }
+
+                    message.payload = { 
+                        ...message.payload, 
+                        battery,
+                        ...conectricUsbGateway.calculateTemperature(tempRaw), 
+                        humidity: conectricUsbGateway.calculateHumidity(humidityRaw)
+                    };
+
+                    break;
+                case 'tempHumidityAdc': 
+                    {
+                        message.payload.battery = battery;
+
+                        if (conectricUsbGateway.params.sendEventCount) {
+                            message.payload.eventCount = parseInt(messageData.substring(2, 10), 16)
                         }
 
-                        return;
-                    }
+                        const rawTemp = messageData.substring(10, 14);
+                        const rawHumidity = messageData.substring(14, 18);
+                        const rawAdcMax = messageData.substring(22, 26);
+                        const rawAdcIn = messageData.substring(26);
 
-                    const tempRaw = messageData.substring(0, 4);
-                    const humidityRaw = messageData.substring(4);
+                        message.payload = {
+                            ...message.payload,
+                            ...conectricUsbGateway.calculateTemperature(rawTemp),
+                            humidity: conectricUsbGateway.calculateHumidity(rawHumidity),
+                            adcIn: rawAdcIn,
+                            adcMax: rawAdcMax
+                        }
 
+                        if (conectricUsbGateway.params.debugMode) {
+                            console.log(`Raw adc in: ${rawAdcIn}`);
+                            console.log(`Raw adc max: ${rawAdcMax}`);
+                            console.log(`Raw battery: ${messageData.substring(18, 22)}`);
+                        }
+                    } break;
+                case 'tempHumidityLight':
+                    {
+                        message.payload.battery = battery;
+
+                        if (conectricUsbGateway.params.sendEventCount) {
+                            message.payload.eventCount = parseInt(messageData.substring(2, 10), 16);
+                        } 
+
+                        const rawTemp = messageData.substring(10, 14);
+                        const rawHumidity = messageData.substring(14, 18);
+                        const rawAdcMax = messageData.substring(22, 26);
+                        const rawAdcIn = messageData.substring(26);
+
+                        const lux = roundTo(0.003 * Math.pow(parseInt(rawAdcIn, 16),  (1.89 - (3.7 - battery) / 25)), 0);
+
+                        let bucketedLux = Math.round(lux / 100);
+
+                        if (bucketedLux > 15) { 
+                            bucketedLux = 15;
+                        }
+
+                        message.payload = {
+                            ...message.payload,
+                            ...conectricUsbGateway.calculateTemperature(rawTemp),
+                            humidity: conectricUsbGateway.calculateHumidity(rawHumidity),
+                            bucketedLux
+                        };
+
+                        if (conectricUsbGateway.params.sendRawLux) {
+                            message.payload.lux = lux;
+                        }
+
+                        if (conectricUsbGateway.params.sendAdcWithLux) {
+                            message.payload.adcIn = rawAdcIn;
+                            message.payload.adcMax = rawAdcMax;
+                        }
+
+                        if (conectricUsbGateway.params.debugMode) {
+                            console.log(`Raw adc in: ${rawAdcIn}`);
+                            console.log(`Raw adc max: ${rawAdcMax}`);
+                            console.log(`Raw battery: ${messageData.substring(18, 22)}`);
+                        }
+                    } break;
+                case 'moisture':
                     message.payload.battery = battery;
-                    message.payload.temperature = roundTo((-46.85 + ((parseInt(tempRaw, 16) / 65536) * 175.72)), 2); // celcius
 
-                    if (conectricUsbGateway.params.useFahrenheitTemps) {
-                        message.payload.temperature = roundTo(((message.payload.temperature * (9 / 5)) + 32), 2); // fahrenheit
-                        message.payload.temperatureUnit = 'F';
+                    // This is a new protocol only sensor, so event count
+                    // data will always be present...
+
+                    if (messageData.startsWith('21') || messageData.startsWith('22')) {
+                        // This is a status report not an actual event.
+                        if (! conectricUsbGateway.params.sendStatusMessages) {
+                            // Not sending status message to callback.
+                            return;
+                        }
+
+                        message.type = 'moistureStatus';
+
+                        message.payload = { 
+                            ...message.payload, 
+                            moisture: messageData.startsWith('21'),
+                            ...conectricUsbGateway.calculateTemperature(messageData.substring(10, 14)), 
+                            humidity: conectricUsbGateway.calculateHumidity(messageData.substring(14))
+                        };
+
                     } else {
-                        message.payload.temperatureUnit = 'C';
+                        // Only indicate moisture for real moisture events.
+                        // In future may need to look and see if this is 0x81
+                        // or 0x82, but 0x82 is not currently supported.
+                        message.payload.moisture = true;
                     }
 
-                    message.payload.humidity = roundTo((-6 + (125 * (parseInt(humidityRaw, 16) / 65536))), 2); // percentage
+                    if (conectricUsbGateway.params.sendEventCount) {
+                        message.payload.eventCount = parseInt(messageData.substring(2, 10), 16)
+                    }
+
                     break;
                 case 'motion':
                     message.payload.battery = battery;
-                    
-                    if (messageData === '21' || messageData === '22') {
+
+                    console.log(`Message data: ${messageData}`)
+                    if (messageData.startsWith('20')) {
                         // This is a status report not an actual event.
                         if (! conectricUsbGateway.params.sendStatusMessages) {
                             // Not sending status message to callback.
@@ -644,11 +781,21 @@ const conectricUsbGateway = {
                         message.payload.motion = true;
                     }
 
+                    // Add eventCount for messages that have it.
+                    if (messageData.length === 10 && conectricUsbGateway.params.sendEventCount) {
+                        message.payload.eventCount = parseInt(messageData.substring(2), 16)
+                    }
+
                     break;
                 case 'switch':
                     message.payload.battery = battery;
 
-                    if (messageData === '21' || messageData === '22') {
+                    // Add eventCount for messages that have it.
+                    if (messageData.length === 10 && conectricUsbGateway.params.sendEventCount) {
+                        message.payload.eventCount = parseInt(messageData.substring(2), 16)
+                    }
+
+                    if ((messageData.startsWith('21')) || (messageData.startsWith('22'))) {
                         // This is a status report not an actual event.
                         if (! conectricUsbGateway.params.sendStatusMessages) {
                             // Not sending status message to callback.
@@ -656,20 +803,10 @@ const conectricUsbGateway = {
                         }
 
                         message.type = 'switchStatus';
-
-                        // This is reporting the current status, no change actually occurred.
-                        message.payload.switch = (conectricUsbGateway.params.switchOpenValue ? (messageDate === '21') : (messageData === '22'));
+                        message.payload.switch = (conectricUsbGateway.params.switchOpenValue ? (messageData.startsWith('21')) : (messageData.startsWith('22')));
                     } else {
-                        // This is an actual status change event.
-                        message.payload.switch = (conectricUsbGateway.params.switchOpenValue ? (messageData === '81') : (messageData === '82'));
-                    }
-                    break;
-                case 'keepAlive':
-                    if (conectricUsbGateway.params.sendKeepAliveMessages) {
-                        message.payload.battery = battery;
-                    } else {
-                        // Not sending keepAlive message to callback.
-                        return;
+                        // This is an actual switch event.
+                        message.payload.switch = (conectricUsbGateway.params.switchOpenValue ? (messageData.startsWith('81')) : (messageData.startsWith('82')));
                     }
 
                     break;

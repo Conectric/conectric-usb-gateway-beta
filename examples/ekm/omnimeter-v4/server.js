@@ -8,7 +8,7 @@
     Meter response is received via data chunks.
 */
 
-const gateway = require('conectric-usb-gateway');
+const gateway = require('conectric-usb-gateway-beta');
 
 const METER_SERIAL_NUMBER_HEX = '303030333030303032323535';
 
