@@ -185,7 +185,7 @@ If your application does not need to see these messages, they can be suppressed 
 
 ### moisture
 
-This message is sent when a moisture sensor detects moisture.  It is an event driven message.  If you want the moisture sensor to periodically report its status, regardless of whether a moisture event has occurred, see the `moistureStatus` message.  The message JSON looks like this:
+This message is sent when a moisture sensor detects a change in the presence of moisture.  It is an event driven message.  If you want the moisture sensor to periodically report its status, regardless of whether a moisture event has occurred, see the `moistureStatus` message.  The message JSON looks like this:
 
 ```json
 { 
@@ -203,9 +203,7 @@ This message is sent when a moisture sensor detects moisture.  It is an event dr
 The `payload` for the `moisture` message consists of the following keys:
 
 * `battery`: The sensor's battery level in volts.
-* `moisture`: Will always be `true` as the sensor only fires when moisture is detected.
-
-
+* `moisture`: `true` if the sensor is wet, `false` if it is dry.
 
 ### moistureStatus
 

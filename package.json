@@ -1,28 +1,4 @@
 {
-  "_from": "conectric-usb-gateway-beta",
-  "_id": "conectric-usb-gateway-beta@0.0.3",
-  "_inBundle": false,
-  "_integrity": "sha512-aYhpJvB/V81EC8xZ/CxyKdUzmsQ9EYjb4g6T9t/4TvVxYdWn1m4Ec9tDozONZbo36Yo+kiL2UWC9eehgvxGojQ==",
-  "_location": "/conectric-usb-gateway-beta",
-  "_phantomChildren": {},
-  "_requested": {
-    "type": "tag",
-    "registry": true,
-    "raw": "conectric-usb-gateway-beta",
-    "name": "conectric-usb-gateway-beta",
-    "escapedName": "conectric-usb-gateway-beta",
-    "rawSpec": "",
-    "saveSpec": null,
-    "fetchSpec": "latest"
-  },
-  "_requiredBy": [
-    "#USER",
-    "/"
-  ],
-  "_resolved": "https://registry.npmjs.org/conectric-usb-gateway-beta/-/conectric-usb-gateway-beta-0.0.3.tgz",
-  "_shasum": "a19ee194f28e5be1ed7fc79d1e22c62eea6066e0",
-  "_spec": "conectric-usb-gateway-beta",
-  "_where": "/Users/simon/source/projects/adding-lux-water",
   "author": {
     "name": "Conectric Networks"
   },
@@ -64,5 +40,5 @@
     "url": "git+https://github.com/Conectric/conectric-usb-gateway-beta.git"
   },
   "scripts": {},
-  "version": "0.0.4"
+  "version": "0.0.5"
 }

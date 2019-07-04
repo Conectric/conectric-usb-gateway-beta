@@ -24,7 +24,6 @@ const conectricUsbGateway = {
     EXTENDED_HEADER: 128,
     
     MESSAGE_TYPES: {
-        // SIMON TODO REMOVE KEEPALIVE FROM DOCS, EXAMPLES
         '30': 'tempHumidity',
         '31': 'switch',
         '32': 'motion',
@@ -33,9 +32,9 @@ const conectricUsbGateway = {
         '38': 'rs485ChunkRequest',
         '39': 'rs485ChunkResponse',
         '42': 'rs485ChunkEnvelopeResponse',
-        '44': 'moisture', // SIMON TODO NEW
-        '45': 'tempHumidityLight', // SIMON TODO NEW
-        '46': 'tempHumidityAdc', // SIMON TODO NEW
+        '44': 'moisture',
+        '45': 'tempHumidityLight',
+        '46': 'tempHumidityAdc',
         '60': 'boot',
         '61': 'text',
         '70': 'rs485Config'
@@ -58,15 +57,15 @@ const conectricUsbGateway = {
     PARAM_SCHEMA: Joi.object().keys({
         onSensorMessage: Joi.func().required(),
         onGatewayReady: Joi.func().optional(),
-        sendAdcWithLux: Joi.boolean().optional(), // SIMON TODO document
+        sendAdcWithLux: Joi.boolean().optional(),
         sendRawData: Joi.boolean().optional(),
-        sendRawLux: Joi.boolean().optional(), // SIMON TODO document
+        sendRawLux: Joi.boolean().optional(),
         sendBootMessages: Joi.boolean().optional(),
         sendStatusMessages: Joi.boolean().optional(),
         sendDecodedPayload: Joi.boolean().optional(),
         sendEventCount: Joi.boolean().optional(),
         useFahrenheitTemps: Joi.boolean().optional(),
-        useMillisecondTimestamps: Joi.boolean().optional(), // SIMON TODO document
+        useMillisecondTimestamps: Joi.boolean().optional(),
         switchOpenValue: Joi.boolean().optional(),
         deDuplicateBursts: Joi.boolean().optional(),
         decodeTextMessages: Joi.boolean().optional(),
@@ -753,10 +752,9 @@ const conectricUsbGateway = {
                         };
 
                     } else {
-                        // Only indicate moisture for real moisture events.
-                        // In future may need to look and see if this is 0x81
-                        // or 0x82, but 0x82 is not currently supported.
-                        message.payload.moisture = true;
+                        // 81 = event caused because now wet where was dry.
+                        // 82 = event caused because now dry where was wet.
+                        message.payload.moisture = messageData.startsWith('81');
                     }
 
                     if (conectricUsbGateway.params.sendEventCount) {
