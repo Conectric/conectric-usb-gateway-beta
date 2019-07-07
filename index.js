@@ -765,7 +765,6 @@ const conectricUsbGateway = {
                 case 'motion':
                     message.payload.battery = battery;
 
-                    console.log(`Message data: ${messageData}`)
                     if (messageData.startsWith('20')) {
                         // This is a status report not an actual event.
                         if (! conectricUsbGateway.params.sendStatusMessages) {
