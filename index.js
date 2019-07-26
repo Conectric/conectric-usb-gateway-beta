@@ -54,6 +54,10 @@ const conectricUsbGateway = {
         '61'
     ],
 
+    TX_LED_DEFAULT_COLOR: '02', // Red
+    RX_LED_DEFAULT_COLOR: '01', // Green
+    ACTIVITY_LED_DEFAULT_COLOR: '04', // Yellow
+
     PARAM_SCHEMA: Joi.object().keys({
         onSensorMessage: Joi.func().required(),
         onGatewayReady: Joi.func().optional(),
@@ -119,6 +123,27 @@ const conectricUsbGateway = {
             8
         ),
         destination: Joi.string().length(4).required()
+    }).required().options({
+        allowUnknown: false
+    }),
+
+    LED_CONFIG_MESSAGE_SCHEMA: Joi.object().keys({
+        destination: Joi.string().length(4).required(),
+        sensorType: Joi.string().valid(
+            'moisture',
+            'motion',
+            'switch',
+            'tempHumidity',
+            'tempHumidityLight'  
+        ).required(),
+        leds: Joi.object().keys({
+            tx: Joi.boolean().required(),
+            rx: Joi.boolean().required(),
+            activity: Joi.boolean().required()
+        }).required().options({
+            allowUnknown: false
+        }),
+        deploymentLifetime: Joi.number().integer().min(0).required()
     }).required().options({
         allowUnknown: false
     }),
@@ -452,6 +477,59 @@ const conectricUsbGateway = {
         params.message = `${chunkNumberHex}${chunkSizeHex}`;
         params.hexEncodePayload = false;
         return conectricUsbGateway._sendRS485Message(params);
+    },
+
+    sendLEDConfigMessage: (params) => {
+        const validationResult = Joi.validate(params, conectricUsbGateway.LED_CONFIG_MESSAGE_SCHEMA);
+
+        if (validationResult.error) {
+            console.error(validationResult.error.message);
+            return false;
+        }
+
+        params.msgCode = '1c'; // set here
+
+        let destinationSensorType;
+
+        switch (params.sensorType) {
+            case 'moisture':
+                destinationSensorType = '59';
+                break;
+            case 'motion':
+                destinationSensorType = '04';
+                break;  
+            case 'switch':
+                destinationSensorType = '05';
+                break;      
+            case 'tempHumidity':
+                destinationSensorType = '29';
+                break;
+            case 'tempHumidityLight':
+                destinationSensorType = '5A';
+                break;
+        }
+
+        const txLED = params.leds.tx === true ? conectricUsbGateway.TX_LED_DEFAULT_COLOR : '00';
+        const rxLED = params.leds.rx === true ? conectricUsbGateway.RX_LED_DEFAULT_COLOR : '00';
+        const activityLED = params.leds.activity === true ? conectricUsbGateway.ACTIVITY_LED_DEFAULT_COLOR : '00';
+        const deploymentLifetime = params.deploymentLifetime.toString(16);
+
+        let msg = `${params.msgCode}${params.destination}01${deploymentLifetime}c108${destinationSensorType}07010204${txLED}${rxLED}${activityLED}00`
+
+        let msgLen = 1 + (msg.length / 2); // 1 is the length byte.
+        let hexLen = msgLen.toString(16);
+
+        if (hexLen.length === 1) {
+            hexLen = `0${hexLen}`;
+        }
+
+        let outboundMessage = `<${hexLen}${msg}`;
+        if (conectricUsbGateway.params.debugMode) {
+            console.log(`Outbound LED config message: ${outboundMessage}`);
+        }
+
+        conectricUsbGateway.serialPort.write(`${outboundMessage}\n`);      
+        return true;
     },
 
     sendRS485Request: (params) => {

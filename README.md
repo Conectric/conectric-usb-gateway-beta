@@ -799,6 +799,56 @@ This requires the gateway to be up and running, so should be called only once th
 
 Both `message` and `destination` are required parameters.
 
+## Sending Sensor Configuration Messages
+
+Messages can be sent to sensors to tell them to alter their configuation.  At the moment, the following message is available:
+
+### LED Config Message
+
+This message is used to configure the three LEDs on each sensor.  The LEDs are:
+
+* tx (transmit)
+* rx (receive)
+* activity (activity)
+
+The following paramaters are all required when using `sendLEDConfigMessage`:
+
+* `destination`: The last 4 characters of the MAC address of the device that the message is destined for e.g. `da40`.
+* `sensorType`: Needs to be set to match which type of sensor the message is going to, valid values are `moisture`, `motion`, `switch`, `tempHumidity` and `tempHumidityLight`.
+* `deploymentLifetime`: The time in minutes to broadcast the configuration message through the mesh network.
+* `leds.tx`: Set to `true` to turn the tx (red) LED on, or `false` to turn it off.
+* `leds.rx`: Set to `true` to turn the rx (green) LED on, or `false` to turn it off.
+* `leds.activity`: Set to `true` to turn the activity (yellow) LED on, or `false` to turn it off.
+
+This requires the gateway to be up and running, so should be called only once the `onGatewayReady` callback has been invoked.  If you want to broadcast the text message to any listening routers, use `gateway.BROADCAST_ALL_ADDRESS` as the destination value.  Use `gateway.BROADCAST_LOCAL_ADDRESS` to broadcast to local neighboring devices only.
+
+Example usage...
+
+```javascript
+const gateway = require('conectric-usb-gateway-beta');
+
+gateway.runGateway({
+    onSensorMessage: (sensorMessage) => {
+        console.log(sensorMessage);
+    },
+    onGatewayReady: () => {
+        console.log('Gateway is ready.');
+        const res = gateway.sendLEDConfigMessage({
+            destination: '3b8e',
+            sensorType: 'moisture',
+            leds: {
+                tx: true,
+                rx: true,
+                activity: true
+            },
+            deploymentLifetime: 30
+        });
+
+        console.log(`${res === true ? 'Message sent.' : 'Error sending message.'}`);
+    }
+});
+```
+
 ## RS-485 Messaging
 
 Using Conectric's wireless RS-485 module, messages can be exchanged with devices that use the RS-485 protocol.
