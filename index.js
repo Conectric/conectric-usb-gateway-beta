@@ -40,6 +40,11 @@ const conectricUsbGateway = {
         '70': 'rs485Config'
     },
 
+    TRACKABLE_MESSAGES: [
+        39, // rs485ChunkResponse
+        42 // r485ChunkEnvelopeResponse
+    ],
+
     BROADCAST_MESSAGE_TYPES: [
         '30',
         '31',
@@ -74,7 +79,8 @@ const conectricUsbGateway = {
         deDuplicateBursts: Joi.boolean().optional(),
         decodeTextMessages: Joi.boolean().optional(),
         debugMode: Joi.boolean().optional(),
-        sendHopData: Joi.boolean().optional()
+        sendHopData: Joi.boolean().optional(),
+        useTrackingId: Joi.boolean().optional(),
     }).required().options({
         allowUnknown: false
     }),
@@ -89,7 +95,8 @@ const conectricUsbGateway = {
     RS485_MESSAGE_SCHEMA: Joi.object().keys({
         message: Joi.string().min(1).max(250).required(),
         destination: Joi.string().length(4).required(),
-        hexEncodePayload: Joi.boolean().optional()
+        hexEncodePayload: Joi.boolean().optional(),
+        trackingId: Joi.string().length(4).regex(/([A-Fa-f0-9]{4})/gi).optional()
     }).required().options({
         allowUnknown: false
     }),
@@ -97,7 +104,8 @@ const conectricUsbGateway = {
     RS485_CHUNKED_MESSAGE_SCHEMA: Joi.object().keys({
         chunkNumber: Joi.number().integer().min(0).required(),
         chunkSize: Joi.number().integer().min(1).required(),
-        destination: Joi.string().length(4).required()
+        destination: Joi.string().length(4).required(),
+        trackingId: Joi.string().length(4).regex(/([A-Fa-f0-9]{4})/gi).optional()
     }).required().options({
         allowUnknown: false
     }),
@@ -435,6 +443,12 @@ const conectricUsbGateway = {
         // 1 for the reserved part
         // 1 for each letter in the message if encoding
         let msgLen = 5 + (params.hexEncodePayload ? params.message.length : params.message.length / 2);
+
+        // Add another 2 if trackingId is set.
+        if (params.trackingId) {
+            msgLen += 2;
+        }
+
         let hexLen = msgLen.toString(16);
 
         if (hexLen.length === 1) {
@@ -442,6 +456,10 @@ const conectricUsbGateway = {
         }
 
         let outboundMessage = `<${hexLen}${params.msgCode}${params.destination}01${encodedPayload}`;
+
+        if (params.trackingId) {
+            outboundMessage = `${outboundMessage}${params.trackingId}`;
+        }
                 
         if (conectricUsbGateway.params.debugMode) {
             console.log(`Outbound RS485 request: ${outboundMessage}`);
@@ -598,16 +616,22 @@ const conectricUsbGateway = {
 
     parseMessage: (data) => {
         const fullMessage = data;
+        let trackingId;
 
         if (conectricUsbGateway.params.debugMode) {
             console.log(fullMessage);
+        }
+
+        if (conectricUsbGateway.params.useTrackingId) {
+            trackingId = data.substring(data.length - 4);
+            console.log(`Extracted tracking ID ${trackingId} from data`);
         }
 
         // Chop off the last 4 which are CRC.
         data = data.substring(0, data.length - 4);
 
         if (conectricUsbGateway.params.debugMode) {
-            console.log(`Removed CRC from data, leaving: ${data}`);
+            console.log(`Removed tracking ID from data, leaving: ${data}`);
         }
 
         // Get to the message type value first so we can drop message
@@ -688,6 +712,10 @@ const conectricUsbGateway = {
         };
 
         message.timestamp= (conectricUsbGateway.params.useMillisecondTimestamps ? moment().valueOf() : moment().unix());
+
+        if (conectricUsbGateway.params.useTrackingId && conectricUsbGateway.TRACKABLE_MESSAGES.includes(messageType)) {
+            message.trackingId = trackingId;
+        }
 
         if (conectricUsbGateway.isBroadcastMessageType(messageType)) {
             // Broadcast message detected add extra fields.

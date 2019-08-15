@@ -306,6 +306,7 @@ The `payload` for the `rs485ChunkEnvelopeResponse` message consists of the follo
 * `battery`: The sensor's battery level in volts.
 * `numChunks`: The number of chunks that the complete response payload has been broken up into.
 * `chunkSize`: The size in bytes of each chunk.
+* `trackingId`: If `useTrackingId` is enabled (see [Configuration Options](#configuration-options) section).
 
 Information from the payload would then be used to send `rs485ChunkRequest` messages to ask the remote device to send each chunk across the network until all are received and can be re-assembled into the original message.
 
@@ -331,6 +332,7 @@ The `payload` for the `rs485ChunkResponse` message consists of the following key
 
 * `battery`: The sensor's battery level in volts.
 * `data`: Raw data from the device sending the message.
+* `trackingId`: If `useTrackingId` is enabled (see [Configuration Options](#configuration-options) section).
 
 ### rs485Response
 
@@ -736,6 +738,23 @@ If `true`, all message timestamps will use millisecond accuracy.  If `false`, al
 * Possible values: `true | false`
 * Optional: yes
 * Detauls: `false`
+
+### useTrackingId
+
+If `true`, then any four character hex string supplied to the `rs485ChunkRequest` or `rs485ChunkEnvelopeRequest` will be returned in the corresponding response message, so that a response can be associated with a given request.  
+
+Example:
+
+```
+gateway.sendRS485ChunkRequest({
+  chunkNumber: 0,
+  chunkSize: 64,
+  destination: '1fcd',
+  trackingId: 'FFFF'
+});
+```
+
+You can then expect the response from the RS485 hub to contain `trackingId: 'FFFF'`.  Valid values for `trackingId` are `0000` to `FFFF` inclusive.
 
 ## Getting the Gateway's MAC Address
 
