@@ -40,5 +40,5 @@
     "url": "git+https://github.com/Conectric/conectric-usb-gateway-beta.git"
   },
   "scripts": {},
-  "version": "0.0.8"
+  "version": "0.0.9"
 }

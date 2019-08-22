@@ -665,7 +665,7 @@ const conectricUsbGateway = {
         if (conectricUsbGateway.IGNORABLE_MESSAGE_TYPES.includes(messageType)) {
             // Drop this message and do no more work on it.
             if (conectricUsbGateway.params.debugMode) {
-                console.log(`Dropping message "${fullMesage}" as it is ignorable.`);
+                console.log(`Dropping message "${fullMessage}" as it is ignorable.`);
             }
             
             return;
