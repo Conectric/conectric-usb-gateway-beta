@@ -31,7 +31,10 @@ const conectricUsbGateway = {
         '37': 'rs485Response',
         '38': 'rs485ChunkRequest',
         '39': 'rs485ChunkResponse',
+        '40': 'pulse',
+        '41': 'echoStatus',
         '42': 'rs485ChunkEnvelopeResponse',
+        '43': 'rs485Status',
         '44': 'moisture',
         '45': 'tempHumidityLight',
         '46': 'tempHumidityAdc',
@@ -41,8 +44,8 @@ const conectricUsbGateway = {
     },
 
     TRACKABLE_MESSAGES: [
-        39, // rs485ChunkResponse
-        42 // r485ChunkEnvelopeResponse
+        '39', // rs485ChunkResponse
+        '42' // r485ChunkEnvelopeResponse
     ],
 
     BROADCAST_MESSAGE_TYPES: [
@@ -51,7 +54,10 @@ const conectricUsbGateway = {
         '32',
         '37',
         '39',
+        '40',
+        '41',
         '42',
+        '43',
         '44',
         '45',
         '46',
@@ -140,6 +146,7 @@ const conectricUsbGateway = {
         sensorType: Joi.string().valid(
             'moisture',
             'motion',
+            'pulse',
             'switch',
             'tempHumidity',
             'tempHumidityLight'  
@@ -516,6 +523,9 @@ const conectricUsbGateway = {
             case 'motion':
                 destinationSensorType = '04';
                 break;  
+            case 'pulse':
+                destinationSensorType = '3d';
+                break;
             case 'switch':
                 destinationSensorType = '05';
                 break;      
@@ -523,18 +533,22 @@ const conectricUsbGateway = {
                 destinationSensorType = '29';
                 break;
             case 'tempHumidityLight':
-                destinationSensorType = '5A';
+                destinationSensorType = '5a';
                 break;
         }
 
         const txLED = params.leds.tx === true ? conectricUsbGateway.TX_LED_DEFAULT_COLOR : '00';
         const rxLED = params.leds.rx === true ? conectricUsbGateway.RX_LED_DEFAULT_COLOR : '00';
         const activityLED = params.leds.activity === true ? conectricUsbGateway.ACTIVITY_LED_DEFAULT_COLOR : '00';
-        const deploymentLifetime = params.deploymentLifetime.toString(16);
+        let deploymentLifetime = params.deploymentLifetime.toString(16);
+
+        if (deploymentLifetime.length < 2) {
+            deploymentLifetime = `0${deploymentLifetime}`;
+        }
 
         let msg = `${params.msgCode}${params.destination}01${deploymentLifetime}c108${destinationSensorType}07010204${txLED}${rxLED}${activityLED}00`
 
-        let msgLen = 1 + (msg.length / 2); // 1 is the length byte.
+        let msgLen = Math.round(1 + (msg.length / 2)); // 1 is the length byte.
         let hexLen = msgLen.toString(16);
 
         if (hexLen.length === 1) {
@@ -624,7 +638,6 @@ const conectricUsbGateway = {
 
         if (conectricUsbGateway.params.useTrackingId) {
             trackingId = data.substring(data.length - 4);
-            console.log(`Extracted tracking ID ${trackingId} from data`);
         }
 
         // Chop off the last 4 which are CRC.
@@ -868,6 +881,21 @@ const conectricUsbGateway = {
                     }
 
                     break;
+                case 'echoStatus':
+                case 'rs485Status':
+                    message.payload.battery = battery;
+
+                    if (! conectricUsbGateway.params.sendStatusMessages) {
+                        // Not sending status message to callback.
+                        return;
+                    }
+
+                    // Add eventCount for messages that have it.
+                    if (messageData.length === 10 && conectricUsbGateway.params.sendEventCount) {
+                        message.payload.eventCount = parseInt(messageData.substring(2), 16)
+                    }
+                    
+                    break;
                 case 'motion':
                     message.payload.battery = battery;
 
@@ -882,6 +910,28 @@ const conectricUsbGateway = {
                     } else {
                         // Only indicate motion for real motion events.
                         message.payload.motion = true;
+                    }
+
+                    // Add eventCount for messages that have it.
+                    if (messageData.length === 10 && conectricUsbGateway.params.sendEventCount) {
+                        message.payload.eventCount = parseInt(messageData.substring(2), 16)
+                    }
+
+                    break;
+                case 'pulse':
+                    message.payload.battery = battery;
+
+                    if (messageData.startsWith('20')) {
+                        // This is a status report not an actual event.
+                        if (! conectricUsbGateway.params.sendStatusMessages) {
+                            // Not sending status message to callback.
+                            return;
+                        }
+
+                        message.type = 'pulseStatus';
+                    } else {
+                        // Only indicate motion for real pulse events.
+                        message.payload.pulse = true;
                     }
 
                     // Add eventCount for messages that have it.

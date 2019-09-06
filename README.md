@@ -6,7 +6,7 @@
 
 ## Introduction
 
-This module is Conectric's Node.js SDK that allows you to communicate with our wireless mesh network sensors.  We aim to get you up and running quickly, so that you can rapidly build applications or visualizations that use near real time temperature, humidity, motion detection and switch state data.  You can also use this module to communicate with devices that use the [RS-485 protocol](https://en.wikipedia.org/wiki/RS-485).
+This module is Conectric's Node.js SDK that allows you to communicate with our wireless mesh network sensors.  We aim to get you up and running quickly, so that you can rapidly build applications or visualizations that use near real time temperature, humidity, motion detection, pulse and switch state data.  You can also use this module to communicate with devices that use the [RS-485 protocol](https://en.wikipedia.org/wiki/RS-485).
 
 Our introductory video provides a quick overview of the product.
 
@@ -34,6 +34,7 @@ In order to receive data via the USB router through this module, you will need a
 The following sensor types are supported at this time:
 
   * Motion (PIR) sensor.
+  * Pulse sensor.
   * Switch (door switch) sensor.
   * Combined temperature / humidity sensor.
   * Combined temperature / humidity / light sensor.
@@ -138,16 +139,20 @@ Each message has a set of common keys.  Others only appear when certain gateway 
 * `sequenceNumber`: (always present) The message sequence number -- do not rely on these to arrive in order, or be unique, as the sequence number will reset over time or if the sensor's battery is removed and replaced.  You should **not** use a combination of `sequenceNumber` and `sensorId` as a unique message key.
 * `type`: (always present) indicates which type of message was received, values are:
     * `boot`
+    * `echoStatus`
     * `moisture`
-    * `moistureStatus`,
+    * `moistureStatus`
     * `motion`
     * `motionStatus`
+    * `pulse`
+    * `pulseStatus`
     * `rs485Config`
-    * `rs485ChunkEnvelopeResponse`,
-    * `rs485ChunkRequest`,
-    * `rs485ChunkResponse`,
+    * `rs485ChunkEnvelopeResponse`
+    * `rs485ChunkRequest`
+    * `rs485ChunkResponse`
     * `rs485Request`
     * `rs485Response`
+    * `rs485Status`
     * `switch`
     * `switchStatus`
     * `tempHumidity`
@@ -182,6 +187,30 @@ The `payload` for the `boot` message consists of the following keys:
     * `unknown`: Catch all value, which should never appear.
 
 If your application does not need to see these messages, they can be suppressed using the `sendBootMessages` configuration option.  See the [Configuration Options](#configuration-options) section for details.
+
+### echoStatus
+
+Periodic status message sent by Echo routers if configured to do so.
+
+```json
+{
+  "type": "echoStatus",
+  "payload": { 
+    "battery": 3.2, 
+  },
+  "sensorId": "2e06",
+  "sequenceNumber": 34,
+  "timestamp": 1567533467
+}
+```
+
+The `payload` for the `echoStatus` message consists of the following keys:
+
+* `battery`: The router's battery level in volts (routers are usually mains powered to this will usually be the highest possible value).
+
+These messages are off by default, and can be enabled using the `sendStatusMessages` configuration option.  See the [Configuration Options](#configuration-options) section for details.  
+
+Information about the number of events that the router has processed can be added to this message by turning on the `sendEventCount` configuration option.  See the [Configuration Options](#configuration-options) section for details.
 
 ### moisture
 
@@ -260,9 +289,11 @@ The `payload` for the `motion` message consists of the following keys:
 * `battery`: The sensor's battery level in volts.
 * `motion`: Will always be `true` as the sensor only fires when motion is detected.
 
+Information about the number of motion events that the sensor has seen can be added to this message by turning on the `sendEventCount` configuration option.  See the [Configuration Options](#configuration-options) section for details.
+
 ### motionStatus
 
-This message is sent periodically by a motion detector when there have been no actual motion events, to let you know that the sensor is OK.  The message JSON looks like:
+This message is sent periodically by a motion detector when there have been no actual motion events, to let you know that the sensor is OK and can include information about the number of events that the sensor has seen.  The message JSON looks like:
 
 ```json
 { 
@@ -279,6 +310,50 @@ This message is sent periodically by a motion detector when there have been no a
 These messages are off by default, and can be enabled using the `sendStatusMessages` configuration option.  See the [Configuration Options](#configuration-options) section for details.
 
 Information about the number of motion events that the sensor has seen can be added to this message by turning on the `sendEventCount` configuration option.  See the [Configuration Options](#configuration-options) section for details.
+
+### pulse
+
+This message is sent when a pulse sensor detects a pulse.  The message JSON looks like this:
+
+```json
+{ 
+  "type": "pulse",
+  "payload": { 
+    "battery": 2.8, 
+    "pulse": true 
+  },
+  "timestamp": 1518757698977,
+  "sensorId": "02A2",
+  "sequenceNumber": 12 
+}
+```
+
+The `payload` for the `pulse` message consists of the following keys:
+
+* `battery`: The sensor's battery level in volts.
+* `pulse`: Will always be `true` as the sensor only fires when a pulse is detected.
+
+Information about the number of pulse events that the sensor has seen can be added to this message by turning on the `sendEventCount` configuration option.  See the [Configuration Options](#configuration-options) section for details.
+
+### pulseStatus
+
+This message is sent periodically by a pulse sensor when there have been no actual pulse events, to let you know that the sensor is OK, and can include information about the number of events that the sensor has detected.  The message JSON looks like:
+
+```json
+{ 
+  "type": "pulseStatus",
+  "payload": { 
+    "battery": 3.2 
+  },
+  "timestamp": 1551034925,
+  "sensorId": "12c0",
+  "sequenceNumber": 23
+}
+```
+
+These messages are off by default, and can be enabled using the `sendStatusMessages` configuration option.  See the [Configuration Options](#configuration-options) section for details.
+
+Information about the number of pulse events that the sensor has seen can be added to this message by turning on the `sendEventCount` configuration option.  See the [Configuration Options](#configuration-options) section for details.
 
 ### rs485ChunkEnvelopeResponse
 
@@ -357,6 +432,32 @@ The `payload` for the `rs485Response` message consists of the following keys:
 
 * `battery`: The sensor's battery level in volts.
 * `rs485`: Data coming back from the RS-485 device in response to data sent in an `rs485Request` message (See RS-485 Messaging section of this document).  The format and encoding of this data will depend on your RS-485 device.
+
+### rs485Status
+
+Periodic status message sent by RS485 modules if configured to do so.
+
+The message JSON looks like:
+
+```json
+{ 
+  "type": "rs485Status",
+  "payload": { 
+    "battery": 3.2 
+  },
+  "sensorId": "dfbc",
+  "sequenceNumber": 223,
+  "timestamp": 1567503012
+}
+```
+
+The `payload` for the `echoStatus` message consists of the following keys:
+
+* `battery`: The module's battery level in volts (modules are usually mains powered to this will usually be the highest possible value).
+
+These messages are off by default, and can be enabled using the `sendStatusMessages` configuration option.  See the [Configuration Options](#configuration-options) section for details.  
+
+Information about the number of events that the module has processed can be added to this message by turning on the `sendEventCount` configuration option.  See the [Configuration Options](#configuration-options) section for details.
 
 ### switch
 
@@ -665,6 +766,8 @@ The following message types will contain this if turned on:
 * `moistureStatus`
 * `motion`
 * `motionStatus`
+* `pulse`
+* `pulseStatus`
 * `switch`
 * `switchStatus`
 * `tempHumidity`
@@ -708,6 +811,7 @@ If `true`, periodic status messages generated by sensors will be passed to the `
 * Switch
 * Moisture
 * Motion
+* Pulse
 
 Configuration:
 
@@ -833,7 +937,7 @@ This message is used to configure the three LEDs on each sensor.  The LEDs are:
 The following paramaters are all required when using `sendLEDConfigMessage`:
 
 * `destination`: The last 4 characters of the MAC address of the device that the message is destined for e.g. `da40`.
-* `sensorType`: Needs to be set to match which type of sensor the message is going to, valid values are `moisture`, `motion`, `switch`, `tempHumidity` and `tempHumidityLight`.
+* `sensorType`: Needs to be set to match which type of sensor the message is going to, valid values are `moisture`, `motion`, `pulse`, `switch`, `tempHumidity` and `tempHumidityLight`.
 * `deploymentLifetime`: The time in minutes to broadcast the configuration message through the mesh network.
 * `leds.tx`: Set to `true` to turn the tx (red) LED on, or `false` to turn it off.
 * `leds.rx`: Set to `true` to turn the rx (green) LED on, or `false` to turn it off.
