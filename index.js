@@ -44,6 +44,7 @@ const conectricUsbGateway = {
     },
 
     TRACKABLE_MESSAGES: [
+        '37', // rs485Response
         '39', // rs485ChunkResponse
         '42' // r485ChunkEnvelopeResponse
     ],
