@@ -940,7 +940,7 @@ The following parameters (with the exception of `moistureWetReportEvery` are all
   * `pulse`
   * `switch`
   * `tempHumidity` (also sends to `tempHumidityAdc` sensors)
-* `sleepTime`: the time in seconds that the sensor will sleep for if no events occur.  Valid values are 1-60 inclusive.  Using lower values here will cause the sensor to use more battery power.
+* `sleepTime`: the time in seconds that the sensor will sleep for if no events occur.  Valid values are 2-60 inclusive.  Using lower values here will cause the sensor to use more battery power.
 * `reportEvery`: the number of sleep intervals after which the sensor will send it periodic status message.  Valid values are 1-1440 inclusive.  Setting `sleepTime` to 30 and `reportEvery` to 2 will make the sensor send the periodic status message every 60 seconds for example.
 * `eventConfig`: tells the sensor which events to enable / disable the sending of messages for.  The values for this are sensor specific, see the table below.
 * `deploymentLifetime`: The time in minutes to broadcast the configuration message through the mesh network.

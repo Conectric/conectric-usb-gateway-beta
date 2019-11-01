@@ -165,7 +165,7 @@ const conectricUsbGateway = {
             'tempHumidity',
             'tempHumidityLight'  
         ).required(),
-        sleepTime: Joi.number().integer().min(1).max(60).required(),
+        sleepTime: Joi.number().integer().min(2).max(60).required(),
         reportEvery: Joi.number().integer().min(1).max(1440).required(),
         eventConfig: Joi.string().valid('00', '01', '02', '03').required(), // TODO constrain by value of sensorType.
         moistureWetReportEvery: Joi.number().integer().min(1).optional(), // TODO required for moisture sensorType otherwise must not be present.
@@ -593,9 +593,8 @@ const conectricUsbGateway = {
             deploymentLifetime = `0${deploymentLifetime}`;
         }
 
-        const sleepTime = (params.sleepTime === 60 ? '3c00' : '1e00');
+        const sleepTime = conectricUsbGateway.convertToLittleEndianHex(params.sleepTime);
 
-        // params.reportEvery needs converting to hex
         let reportEvery = conectricUsbGateway.convertToLittleEndianHex(params.reportEvery);
 
         let moistureWetReportEvery = '0000';
