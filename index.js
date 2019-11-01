@@ -70,6 +70,20 @@ const conectricUsbGateway = {
     RX_LED_DEFAULT_COLOR: '01', // Green
     ACTIVITY_LED_DEFAULT_COLOR: '04', // Yellow
 
+    MOISTURE_ENABLE_ALL_EVENTS: '00',
+    MOISTURE_DISABLE_BECOMES_WET_EVENT: '01',
+    MOISTURE_DISABLE_BECOMES_DRY_EVENT: '02',
+    MOISTURE_DISABLE_ALL_EVENTS: '03',
+    MOTION_ENABLE_ALL_EVENTS: '00',
+    MOTION_DISABLE_ALL_EVENTS: '01',
+    PULSE_ENABLE_ALL_EVENTS: '00',
+    PULSE_DISABLE_ALL_EVENTS: '01',
+    SWITCH_ENABLE_ALL_EVENTS: '00',
+    SWITCH_DISABLE_CLOSE_EVENT: '01',
+    SWITCH_DISABLE_OPEN_EVENT: '02',
+    SWITCH_DISABLE_ALL_EVENTS: '03',
+    TEMP_HUMIDITY_EVENT_CONFIG: '00',
+
     PARAM_SCHEMA: Joi.object().keys({
         onSensorMessage: Joi.func().required(),
         onGatewayReady: Joi.func().optional(),
@@ -138,6 +152,24 @@ const conectricUsbGateway = {
             8
         ),
         destination: Joi.string().length(4).required()
+    }).required().options({
+        allowUnknown: false
+    }),
+
+    EVENT_CONFIG_MESSAGE_SCHEMA: Joi.object().keys({
+        sensorType: Joi.string().valid(
+            'moisture',
+            'motion',
+            'pulse',
+            'switch',
+            'tempHumidity',
+            'tempHumidityLight'  
+        ).required(),
+        sleepTime: Joi.number().integer().min(1).max(60).required(),
+        reportEvery: Joi.number().integer().min(1).max(1440).required(),
+        eventConfig: Joi.string().valid('00', '01', '02', '03').required(), // TODO constrain by value of sensorType.
+        moistureWetReportEvery: Joi.number().integer().min(1).optional(), // TODO required for moisture sensorType otherwise must not be present.
+        deploymentLifetime: Joi.number().integer().min(0).required()
     }).required().options({
         allowUnknown: false
     }),
@@ -505,6 +537,90 @@ const conectricUsbGateway = {
         return conectricUsbGateway._sendRS485Message(params);
     },
 
+    getSensorCodeFromType: (sensorType) => {
+        let r = '';
+
+        switch (sensorType) {
+            case 'moisture':
+                r = '59';
+                break;
+            case 'motion':
+                r = '04';
+                break;  
+            case 'pulse':
+                r = '3d';
+                break;
+            case 'switch':
+                r = '05';
+                break;      
+            case 'tempHumidity':
+                r = '29';
+                break;
+            case 'tempHumidityLight':
+                r = '5a';
+                break;
+        }
+
+        return r;
+    },
+
+    convertToLittleEndianHex: (valueToConvert) => {
+        let working = valueToConvert.toString(16);
+
+        // Pad out to 2 hex bytes
+        while (working.length < 4) {
+            working = `0${working}`;
+        }
+
+        // Swap the bytes as reportEvery is little endian
+        return `${working.substring(2)}${working.substring(0, 2)}`;
+    },
+
+    sendEventConfigMessage: (params) => {
+        const validationResult = Joi.validate(params, conectricUsbGateway.EVENT_CONFIG_MESSAGE_SCHEMA);
+
+        if (validationResult.error) {
+            console.error(validationResult.error.message);
+            return false;
+        }
+
+        params.msgCode = '1c';
+        const destinationSensorType = conectricUsbGateway.getSensorCodeFromType(params.sensorType);
+
+        let deploymentLifetime = params.deploymentLifetime.toString(16);
+
+        if (deploymentLifetime.length < 2) {
+            deploymentLifetime = `0${deploymentLifetime}`;
+        }
+
+        const sleepTime = (params.sleepTime === 60 ? '3c00' : '1e00');
+
+        // params.reportEvery needs converting to hex
+        let reportEvery = conectricUsbGateway.convertToLittleEndianHex(params.reportEvery);
+
+        let moistureWetReportEvery = '0000';
+
+        if (params.sensorType === 'moisture') {
+            moistureWetReportEvery = conectricUsbGateway.convertToLittleEndianHex(params.moistureWetReportEvery);
+        }
+
+        let msg = `${params.msgCode}000001${deploymentLifetime}c208${destinationSensorType}${sleepTime}${params.eventConfig}00${reportEvery}${moistureWetReportEvery}`
+        let msgLen = Math.round(1 + (msg.length / 2)); // 1 is the length byte.
+        let hexLen = msgLen.toString(16);
+
+        if (hexLen.length === 1) {
+            hexLen = `0${hexLen}`;
+        }
+
+        let outboundMessage = `<${hexLen}${msg}`;
+        if (conectricUsbGateway.params.debugMode) {
+            console.log(`Outbound interval config message: ${outboundMessage}`);
+        }
+
+        conectricUsbGateway.serialPort.write(`${outboundMessage}\n`);      
+        return true;
+    },
+
     sendLEDConfigMessage: (params) => {
         const validationResult = Joi.validate(params, conectricUsbGateway.LED_CONFIG_MESSAGE_SCHEMA);
 
@@ -515,29 +631,7 @@ const conectricUsbGateway = {
 
         params.msgCode = '1c'; // set here
 
-        let destinationSensorType;
-
-        switch (params.sensorType) {
-            case 'moisture':
-                destinationSensorType = '59';
-                break;
-            case 'motion':
-                destinationSensorType = '04';
-                break;  
-            case 'pulse':
-                destinationSensorType = '3d';
-                break;
-            case 'switch':
-                destinationSensorType = '05';
-                break;      
-            case 'tempHumidity':
-                destinationSensorType = '29';
-                break;
-            case 'tempHumidityLight':
-                destinationSensorType = '5a';
-                break;
-        }
-
+        const destinationSensorType = conectricUsbGateway.getSensorCodeFromType(params.sensorType);
         const txLED = params.leds.tx === true ? conectricUsbGateway.TX_LED_DEFAULT_COLOR : '00';
         const rxLED = params.leds.rx === true ? conectricUsbGateway.RX_LED_DEFAULT_COLOR : '00';
         const activityLED = params.leds.activity === true ? conectricUsbGateway.ACTIVITY_LED_DEFAULT_COLOR : '00';

@@ -667,7 +667,7 @@ gateway.runGateway({
 
 ### onGatewayReady
 
-This is an optional callback that should be provided if you want to know when the USB router has been inserted and the gateway has established communications with it and is ready to send messages.  Use this if you wish to use the text message sending or RS-485 functionality.
+This is an optional callback that should be provided if you want to know when the USB router has been inserted and the gateway has established communications with it and is ready to send messages.  Use this if you wish to use the text message sending, RS-485 or sensor configuration messaging functionality.
 
 ```javascript
 const gateway = require('conectric-usb-gateway-beta');
@@ -926,7 +926,125 @@ Both `message` and `destination` are required parameters.
 
 ## Sending Sensor Configuration Messages
 
-Messages can be sent to sensors to tell them to alter their configuation.  At the moment, the following message is available:
+Messages can be sent to sensors to tell them to alter their configuation.  At the moment, the following messages are available:
+
+### Event Config Message
+
+This message is used to configure the reporting interval, sleep time and event configuration for the sensors.
+
+The following parameters (with the exception of `moistureWetReportEvery` are all required when using `sendEventConfigMessage`:
+
+* `sensorType`: Indicates which type of sensor the message is to be sent to.  The message will be sent to all sensors of this type.  Valid values are:
+  * `moisture`
+  * `motion`
+  * `pulse`
+  * `switch`
+  * `tempHumidity` (also sends to `tempHumidityAdc` sensors)
+* `sleepTime`: the time in seconds that the sensor will sleep for if no events occur.  Valid values are 1-60 inclusive.  Using lower values here will cause the sensor to use more battery power.
+* `reportEvery`: the number of sleep intervals after which the sensor will send it periodic status message.  Valid values are 1-1440 inclusive.  Setting `sleepTime` to 30 and `reportEvery` to 2 will make the sensor send the periodic status message every 60 seconds for example.
+* `eventConfig`: tells the sensor which events to enable / disable the sending of messages for.  The values for this are sensor specific, see the table below.
+* `deploymentLifetime`: The time in minutes to broadcast the configuration message through the mesh network.
+* `moistureWetReportEvery`: This setting is only for the `moisture` sensor and can be omitted for all other sensor types.  When the moisture sensor detects water (when it goes from a wet state to a dry state), it will switch to using this value as the multiplier rather than `reportEvery` when calculating how often to send periodic status messages.  For example, with a moisture sensor, setting `sleepTime` to 30, `reportEvery` to 2 and `moistureWetReportEvery` to 1 would cause the sensor to periodically report every 30 x 2 = 1 minute until it detected water when the periodic report would change to be every 30 x 1 = 30 seconds.
+
+Appropriate values for the `eventConfig` parameter:
+
+`moisture` sensor:
+
+| Value                                | Description |
+| ------------------------------------ | ----------- |
+| `MOISTURE_ENABLE_ALL_EVENTS`         | Enables sending of messages for all events. |
+| `MOISTURE_DISABLE_ALL_EVENTS`        | Disables sending of messages for all events. |
+| `MOISTURE_DISABLE_BECOMES_WET_EVENT` | Disables sending of message when sensor goes from a dry to wet condition. |
+| `MOISTURE_DISABLE_BECOMES_DRY_EVENT` | Disables sending of message when sensor goes from a wet to dry condition. |
+
+`motion` sensor:
+
+| Value                      | Description          |
+| ---------------------------|----------------------|
+| `MOTION_ENABLE_ALL_EVENTS` | Enables sending of message for a motion event.  |
+| `MOTION_DISABLE_ALL_EVENTS`| Disables sending of message for a motion event. |
+
+`pulse` sensor:
+
+| Value                     | Description          |
+| --------------------------|----------------------|
+| `PULSE_ENABLE_ALL_EVENTS` | Enables sending of message for a pulse event.  |
+| `PULSE_DISABLE_ALL_EVENTS`| Disables sending of message for a pulse event. |
+
+`switch` sensor:
+
+| Value                        | Description |
+| -----------------------------| ----------- |
+| `SWITCH_ENABLE_ALL_EVENTS`   | Enables all events. |
+| `SWITCH_DISABLE_ALL_EVENTS`  | Disables all events. |
+| `SWITCH_DISABLE_CLOSE_EVENT` | Disables sending of message when switch magnets go from being apart to being close together. |
+| `SWITCH_DISABLE_OPEN_EVENT`  | Disables sending of message when switch magnets go from being close together to being apart. |
+
+`tempHumidity` sensor:
+
+| Value                        | Description |
+| -----------------------------| ------------|
+| `TEMP_HUMIDITY_EVENT_CONFIG` | Always use this value - `tempHumidity` is not event driven, it broadcasts temperature and humidity at a timed interval.|
+
+
+This function requires the gateway to be up and running, so should be called only once the `onGatewayReady` callback has been invoked. 
+
+Example usage, set a moisture sensor to a sleep time of 30 seconds, normal periodic reporting interval of 60 seonds, water detected periodic reporting interval of 30 seconds, and disable the event generated when the sensor goes from a wet state to a dry state:
+
+```javascript
+const gateway = require('conectric-usb-gateway-beta');
+
+gateway.runGateway({
+    onSensorMessage: (sensorMessage) => {
+        console.log(sensorMessage);
+    },
+    sendStatusMessages: true,
+    sendEventCount: true,
+    onGatewayReady: () => {
+        console.log('Gateway ready!');
+
+        const res = gateway.sendEventConfigMessage({
+            sensorType: 'moisture',
+            sleepTime: 30,
+            reportEvery: 2,
+            deploymentLifetime: 60,
+            eventConfig: gateway.MOISTURE_DISABLE_BECOMES_DRY_EVENT,
+            moistureWetReportEvery: 1
+        });
+
+        console.log(`${res === true ? 'Message sent.' : 'Error sending message.'}`);
+    }
+});
+```
+
+Example usage, set a motion sensor to a sleep time of 1 minute, and periodic reporting interval of 1 minute, disable all events so that only periodic report messages are sent (no immediate notifications of motion detected will be sent):
+
+```javascript
+const gateway = require('conectric-usb-gateway-beta');
+
+gateway.runGateway({
+    onSensorMessage: (sensorMessage) => {
+        console.log(sensorMessage);
+    },
+    sendStatusMessages: true,
+    sendEventCount: true,
+    onGatewayReady: () => {
+        console.log('Gateway ready!');
+
+        const res = gateway.sendEventConfigMessage({
+            sensorType: 'motion',
+            sleepTime: 60,
+            reportEvery: 1,
+            deploymentLifetime: 60,
+            eventConfig: gateway.MOTION_DISABLE_ALL_EVENTS,
+        });
+
+        console.log(`${res === true ? 'Message sent.' : 'Error sending message.'}`);
+    }
+});
+```
+
+This function returns `true` if the message was broadcast to the mesh network, and `false` if the object passed to it contained invalid configuration parameters.
 
 ### LED Config Message
 
@@ -936,7 +1054,7 @@ This message is used to configure the three LEDs on each sensor.  The LEDs are:
 * rx (receive)
 * activity (activity)
 
-The following paramaters are all required when using `sendLEDConfigMessage`:
+The following parameters are all required when using `sendLEDConfigMessage`:
 
 * `destination`: The last 4 characters of the MAC address of the device that the message is destined for e.g. `da40`.
 * `sensorType`: Needs to be set to match which type of sensor the message is going to, valid values are `moisture`, `motion`, `pulse`, `switch`, `tempHumidity` and `tempHumidityLight`.
