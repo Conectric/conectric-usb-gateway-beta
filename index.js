@@ -12,6 +12,7 @@ const conectricUsbGateway = {
     serialPort: undefined,
     contikiVersion: undefined,
     conectricVersion: undefined,
+    nodeModuleVersion: require('./package.json').version,
 
     BROADCAST_LOCAL_ADDRESS: 'ffff',
     BROADCAST_ALL_ADDRESS: '0000',
@@ -255,6 +256,7 @@ const conectricUsbGateway = {
     },
 
     startGateway: async function () {
+        console.log(`Gateway node module version ${conectricUsbGateway.nodeModuleVersion}.`);
         try {
             await conectricUsbGateway.findRouterDevice();
             console.log(`Found USB router device at ${conectricUsbGateway.comName}.`);

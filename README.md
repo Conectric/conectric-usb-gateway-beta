@@ -881,7 +881,7 @@ The MAC address is returned as a string.  This could for example be useful to us
 
 ## Getting Version Information from the Gateway
 
-Should you need to know the gateway's Contiki OS version or Conectric firmware version, you can do so in your callback function as follows:
+Should you need to know the gateway's Contiki OS version, Conectric firmware version, or the version of the Node module that was npm installe'ed, you can do so in your callback function as follows:
 
 ```javascript
 const gateway = require('conectric-usb-gateway-beta');
@@ -890,6 +890,7 @@ gateway.runGateway({
   onSensorMessage: (sensorMessage) => {
     console.log(gateway.contikiVersion); // '3.x'
     console.log(gateway.conectricVersion); // '1.0.2'
+    console.log(gateway.nodeModuleVersion); // '0.0.15'
     console.log(sensorMessage);
   }
 });
