@@ -941,6 +941,7 @@ The following parameters (with the exception of `moistureWetReportEvery` are all
   * `pulse`
   * `switch`
   * `tempHumidity` (also sends to `tempHumidityAdc` sensors)
+  * `tempHumidityLight`
 * `sleepTime`: the time in seconds that the sensor will sleep for if no events occur.  Valid values are 2-60 inclusive.  Using lower values here will cause the sensor to use more battery power.
 * `reportEvery`: the number of sleep intervals after which the sensor will send it periodic status message.  Valid values are 1-1440 inclusive.  Setting `sleepTime` to 30 and `reportEvery` to 2 will make the sensor send the periodic status message every 60 seconds for example.
 * `eventConfig`: tells the sensor which events to enable / disable the sending of messages for.  The values for this are sensor specific, see the table below.
@@ -981,11 +982,11 @@ Appropriate values for the `eventConfig` parameter:
 | `SWITCH_DISABLE_CLOSE_EVENT` | Disables sending of message when switch magnets go from being apart to being close together. |
 | `SWITCH_DISABLE_OPEN_EVENT`  | Disables sending of message when switch magnets go from being close together to being apart. |
 
-`tempHumidity` sensor:
+`tempHumidity` and `tempHumidityLight` sensors:
 
 | Value                        | Description |
 | -----------------------------| ------------|
-| `TEMP_HUMIDITY_EVENT_CONFIG` | Always use this value - `tempHumidity` is not event driven, it broadcasts temperature and humidity at a timed interval.|
+| `TEMP_HUMIDITY_EVENT_CONFIG` | Always use this value - `tempHumidity` and `tempHumidityLight` are not event driven, they broadcasts temperature and humidity (plus lux for `tempHumidityLight`) at a timed interval.|
 
 
 This function requires the gateway to be up and running, so should be called only once the `onGatewayReady` callback has been invoked. 
